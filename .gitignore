@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+test-results/
+
+.env
+
+.vscode/
+.DS_Store
