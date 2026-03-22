@@ -1,0 +1,42 @@
+name: CI/CD Pipeline
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Отримати код
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Встановити Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # 3. Встановити залежності
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Лінтинг
+      - name: Run lint
+        run: npm run lint
+
+      # 5. Юніт-тести
+      - name: Run tests
+        run: npm run test:unit
+
+      # 6. Білд
+      - name: Build project
+        run: npm run build
