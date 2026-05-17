@@ -3,6 +3,7 @@ import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import posthog from "posthog-js";
 import "./App.css";
 import { useTaskAnalytics } from "./hooks/useTaskAnalytics";
+import { Sentry } from "./instrument";
 import { RegisterPage } from "./pages/RegisterPage";
 
 type Priority = "low" | "medium" | "high";
@@ -15,6 +16,18 @@ type ActivityEntry = {
   detail: string;
 };
 
+function CrashProbe({ active }: { active: boolean }) {
+  if (active) {
+    throw new Error("Sentry React render test error");
+  }
+
+  return (
+    <p className="support-copy">
+      Trigger a render crash to verify React error capture and the fallback UI.
+    </p>
+  );
+}
+
 function AnalyticsPlayground() {
   const { trackTaskCreated, trackTaskCompleted, trackTaskDeleted } = useTaskAnalytics();
   const [email, setEmail] = useState("demo.user@example.com");
@@ -22,10 +35,14 @@ function AnalyticsPlayground() {
   const [category, setCategory] = useState<Category>("study");
   const [deleteReason, setDeleteReason] = useState<DeleteReason>("mistake");
   const [manualEvent, setManualEvent] = useState("manual_test_event");
+  const [crashRequested, setCrashRequested] = useState(false);
   const [taskCounter, setTaskCounter] = useState(1);
   const [lastTaskId, setLastTaskId] = useState("task-1");
   const appStatus = import.meta.env.VITE_APP_STATUS ?? "unknown";
   const posthogHost = import.meta.env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com";
+  const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+  const sentryEnabled = Boolean(sentryDsn);
+  const sentryEnvironment = import.meta.env.VITE_SENTRY_ENVIRONMENT ?? import.meta.env.MODE;
   const [activity, setActivity] = useState<ActivityEntry[]>([
     {
       id: 1,
@@ -118,14 +135,44 @@ function AnalyticsPlayground() {
     addActivity("Manual event sent", normalizedName);
   };
 
+  const handleSentryMessage = () => {
+    Sentry.captureMessage("Sentry message test from analytics playground", "info");
+    addActivity("Sentry message", "Captured test message");
+  };
+
+  const handleSentryException = () => {
+    const error = new Error("Sentry handled exception from analytics playground");
+
+    Sentry.captureException(error, {
+      tags: {
+        source: "analytics_playground",
+        handled: "true",
+      },
+      extra: {
+        appStatus,
+      },
+    });
+
+    addActivity("Sentry exception", error.message);
+  };
+
+  const handleSentryCrash = () => {
+    setCrashRequested(true);
+    addActivity("Sentry React crash", "Triggered render error inside ErrorBoundary");
+  };
+
+  const handleBreakTheWorld = () => {
+    throw new Error("Sentry Test Error: Something went wrong!");
+  };
+
   return (
     <main className="app-shell">
       <section className="hero-panel">
-        <p className="eyebrow">PostHog sandbox</p>
-        <h1>Test events from a real UI, not a placeholder page.</h1>
+        <p className="eyebrow">Observability sandbox</p>
+        <h1>Test analytics and error monitoring from one UI.</h1>
         <p className="hero-copy">
-          Use this screen to send named events, exercise the task analytics hook,
-          and verify identify/reset flows before wiring analytics into the rest of the app.
+          Use this screen to send PostHog events, exercise the task analytics hook,
+          and verify Sentry capture before wiring observability deeper into the app.
         </p>
 
         <div className="hero-actions">
@@ -147,8 +194,8 @@ function AnalyticsPlayground() {
             <dd>{posthogHost}</dd>
           </div>
           <div>
-            <dt>Last task</dt>
-            <dd>{lastTaskId}</dd>
+            <dt>Sentry</dt>
+            <dd>{sentryEnabled ? sentryEnvironment : "disabled"}</dd>
           </div>
         </dl>
       </section>
@@ -265,6 +312,68 @@ function AnalyticsPlayground() {
           <button data-testid="manual-event-button" onClick={handleManualEvent}>
             Send custom event
           </button>
+        </article>
+
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="panel-label">Sentry</p>
+              <h2>SDK test panel</h2>
+            </div>
+          </div>
+
+          <p className="support-copy">
+            {sentryEnabled
+              ? `Sentry is configured for ${sentryEnvironment}. Use the actions below to send a test issue.`
+              : "Sentry DSN is not set yet. Add VITE_SENTRY_DSN to enable error reporting."}
+          </p>
+
+          <div className="button-stack">
+            <button
+              data-testid="sentry-message-button"
+              onClick={handleSentryMessage}
+              disabled={!sentryEnabled}
+            >
+              Capture message
+            </button>
+            <button
+              data-testid="sentry-exception-button"
+              onClick={handleSentryException}
+              disabled={!sentryEnabled}
+            >
+              Capture handled exception
+            </button>
+            <button
+              data-testid="sentry-crash-button"
+              className="ghost-button"
+              onClick={handleSentryCrash}
+              disabled={!sentryEnabled}
+            >
+              Trigger React crash
+            </button>
+            <button
+              data-testid="sentry-break-world-button"
+              className="ghost-button"
+              onClick={handleBreakTheWorld}
+              disabled={!sentryEnabled}
+            >
+              Break the world
+            </button>
+          </div>
+
+          <Sentry.ErrorBoundary
+            fallback={
+              <div className="inline-feedback" data-testid="sentry-fallback">
+                <strong>React error captured.</strong>
+                <span>Reset the probe to trigger the test again.</span>
+                <button type="button" onClick={() => setCrashRequested(false)}>
+                  Reset probe
+                </button>
+              </div>
+            }
+          >
+            <CrashProbe active={crashRequested} />
+          </Sentry.ErrorBoundary>
         </article>
 
         <article className="panel activity-panel">
