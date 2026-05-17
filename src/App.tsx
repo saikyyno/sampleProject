@@ -16,6 +16,20 @@ type ActivityEntry = {
   detail: string;
 };
 
+function ErrorButton() {
+  return (
+    <button
+      data-testid="sentry-break-world-button"
+      className="ghost-button"
+      onClick={() => {
+        throw new Error("This is your first error!");
+      }}
+    >
+      Break the world
+    </button>
+  );
+}
+
 function CrashProbe({ active }: { active: boolean }) {
   if (active) {
     throw new Error("Sentry React render test error");
@@ -159,10 +173,6 @@ function AnalyticsPlayground() {
   const handleSentryCrash = () => {
     setCrashRequested(true);
     addActivity("Sentry React crash", "Triggered render error inside ErrorBoundary");
-  };
-
-  const handleBreakTheWorld = () => {
-    throw new Error("Sentry Test Error: Something went wrong!");
   };
 
   return (
@@ -351,14 +361,7 @@ function AnalyticsPlayground() {
             >
               Trigger React crash
             </button>
-            <button
-              data-testid="sentry-break-world-button"
-              className="ghost-button"
-              onClick={handleBreakTheWorld}
-              disabled={!sentryEnabled}
-            >
-              Break the world
-            </button>
+            {sentryEnabled ? <ErrorButton /> : <ErrorButtonDisabled />}
           </div>
 
           <Sentry.ErrorBoundary
@@ -395,6 +398,14 @@ function AnalyticsPlayground() {
         </article>
       </section>
     </main>
+  );
+}
+
+function ErrorButtonDisabled() {
+  return (
+    <button data-testid="sentry-break-world-button" className="ghost-button" disabled>
+      Break the world
+    </button>
   );
 }
 
