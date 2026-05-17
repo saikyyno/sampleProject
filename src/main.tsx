@@ -6,7 +6,7 @@ import posthog from 'posthog-js';
 
 // Initialize PostHog
 posthog.init('ph_project_api_key', {
-    api_host: 'https://app.posthog.com', // Change to 'https://eu.posthog.com' if your project is hosted in the EU region
+    api_host: 'https://eu.posthog.com', // Change to 'https://eu.posthog.com' if your project is hosted in the EU region
     person_profiles: 'identified_only',
 
     session_recording: {
