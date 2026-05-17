@@ -1,0 +1,76 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main       # кожен push у головну гілку
+      - develop    # кожен push у гілку розробки
+  pull_request:    # кожен pull request (перевірка до merge)
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest   # хмарна VM від GitHub
+
+    steps:
+      # Крок 1: Клонувати репозиторій на раннер
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Крок 2: Встановити Node.js потрібної версії
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'        # кешуємо node_modules для швидкості
+
+      # Крок 3: Встановити залежності через npm ci
+      - name: Install dependencies
+        run: npm ci
+
+      # Крок 4: Перевірка стилю коду (лінтер)
+      - name: Run linter
+        run: npm run lint
+
+      # Крок 5: Запуск юніт-тестів
+      - name: Run unit tests
+        run: npm run test:unit
+
+      # Крок 6: Збірка production-артефакту
+      # Перевіряє, що проєкт успішно компілюється
+      - name: Build project
+        run: npm run build
+
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: build-and-test          # залежність від CI-джобу (Quality Gate)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      # Крок 1: Клонувати репозиторій
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Крок 2: Встановити Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Крок 3: Встановити Vercel CLI глобально
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Крок 4: Завантажити налаштування проєкту з Vercel
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Крок 5: Зібрати проєкт через Vercel Build
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Крок 6: Задеплоїти зібраний артефакт на production URL
+      - name: Deploy Project Artifacts to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
