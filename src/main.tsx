@@ -1,22 +1,34 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App.tsx';
-import './index.css';
-import posthog from 'posthog-js';
+import "./instrument.ts";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
+import posthog from "posthog-js";
+import { Sentry } from "./instrument.ts";
 
-// Initialize PostHog
-posthog.init('ph_project_api_key', {
-    api_host: 'https://app.posthog.com', // Change to 'https://eu.posthog.com' if your project is hosted in the EU region
-    person_profiles: 'identified_only',
+const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
+const posthogHost = import.meta.env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
+if (posthogKey) {
+  posthog.init(posthogKey, {
+    api_host: posthogHost,
+    defaults: "2026-01-30",
+    person_profiles: "identified_only",
     session_recording: {
-        maskAllInputs: true,
-        maskInputOptions: { password: true },
+      maskAllInputs: true,
+      maskInputOptions: { password: true },
     },
+  });
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root")!, {
+  onUncaughtError: Sentry.reactErrorHandler(),
+  onCaughtError: Sentry.reactErrorHandler(),
+  onRecoverableError: Sentry.reactErrorHandler(),
 });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>,
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
 );
